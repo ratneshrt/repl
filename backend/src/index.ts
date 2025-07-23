@@ -47,7 +47,7 @@ io.on('connection', (socket) => {
 })
 
 app.get('/files', async (req, res) => {
-    const fileTree = await generateFileTree(`/user`)
+    const fileTree = await generateFileTree(`${process.cwd()}/user`)
     return res.json({
         tree: fileTree
     })
@@ -60,14 +60,10 @@ server.listen(9000, () => {
 async function generateFileTree(directory: string){
     const tree = {}
 
-    const filePath = __dirname + directory
-
-    console.log(typeof(filePath))
-
     async function buildTree(currentDir: string, currentTree:any){
         const files = await fs.readdir(currentDir)
 
-        for (const file in files){
+        for (const file of files){
             const filePath = path.join(currentDir, file)
             const stat = await fs.stat(filePath)
 
