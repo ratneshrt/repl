@@ -31,6 +31,10 @@ export const Terminal = () => {
 
         socket.on('terminal:data', onTerminalData)
 
+        // return () => {
+        //     socket.off("terminal:data", onTerminalData)
+        // }
+        
     }, [])
 
     return (

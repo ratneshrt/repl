@@ -3,7 +3,9 @@ import { Server as SockerServer } from 'socket.io'
 import http from 'http'
 import * as pty from 'node-pty'
 import fs from 'fs/promises'
-import path, { dirname } from 'path'
+import path from 'path'
+import cors from 'cors'
+import chokidar from 'chokidar'
 
 const shell = 'bash'
 
@@ -30,7 +32,14 @@ const io = new SockerServer({
     }
 })
 
+app.use(cors())
+app.use(express.json())
+
 io.attach(server)
+
+chokidar.watch(`${process.cwd()}/user`).on('all', (event, path) => {
+    io.emit('file:refresh', path)
+})
 
 ptyProcess.onData(data => {
     const cleanData = stripAnsi(data)
@@ -41,7 +50,10 @@ ptyProcess.onData(data => {
 io.on('connection', (socket) => {
     console.log('Socket connected ', socket.id)
 
+    socket.emit('file:refresh')
+
     socket.on('terminal:write', (data) => {
+        console.log('Term', data)
         ptyProcess.write(data)
     })
 })
