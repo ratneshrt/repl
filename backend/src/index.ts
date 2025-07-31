@@ -1,5 +1,5 @@
 import express from 'express'
-import { Server as SockerServer } from 'socket.io'
+import { Server as SocketServer } from 'socket.io'
 import http from 'http'
 import * as pty from 'node-pty'
 import fs from 'fs/promises'
@@ -7,14 +7,14 @@ import path from 'path'
 import cors from 'cors'
 import chokidar from 'chokidar'
 
-const shell = 'bash'
-
 function stripAnsi(str: string): string{
     return str.replace(
         /\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g,
         ''
     )
 }
+
+const shell = 'bash'
 
 const ptyProcess = pty.spawn(shell, ['--noprofile', '--norc', '-i'], {
     name: 'xterm-color',
@@ -26,7 +26,7 @@ const ptyProcess = pty.spawn(shell, ['--noprofile', '--norc', '-i'], {
 
 const app = express()
 const server = http.createServer(app)
-const io = new SockerServer({
+const io = new SocketServer(server, {
     cors: {
         origin: "*"
     }
@@ -52,6 +52,10 @@ io.on('connection', (socket) => {
 
     socket.emit('file:refresh')
 
+    socket.on('file:change', async({ path, content }) => {
+        await fs.writeFile(`./user${path}`, content)
+    } )
+
     socket.on('terminal:write', (data) => {
         console.log('Term', data)
         ptyProcess.write(data)
@@ -62,6 +66,14 @@ app.get('/files', async (req, res) => {
     const fileTree = await generateFileTree(`${process.cwd()}/user`)
     return res.json({
         tree: fileTree
+    })
+})
+
+app.get('/files/content', async (req, res) => {
+    const path = req.query.path
+    const content = await fs.readFile(`./user/${path}`, 'utf-8')
+    return res.json({
+        content
     })
 })
 

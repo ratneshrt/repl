@@ -1,20 +1,40 @@
 import { Terminal } from "./components/Terminal"
 import './App.css'
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { FileTree } from "./components/FileTree"
 import { socket } from "./socket"
-import AceEditor from "react-ace";
-import ace from "ace-builds/src-noconflict/ace"
-import "ace-builds/src-noconflict/mode-java";
-import "ace-builds/src-noconflict/theme-github";
-import "ace-builds/src-noconflict/ext-language_tools";
-
-ace.config.set('basePath', '/ace')
+import Editor from '@monaco-editor/react'
 
 function App() {
 
   const [fileTree, setFileTree] = useState({})
   const [selectedFile, setSelectedFile] = useState('')
+  const [seletectedFileContent, setSelectedFileContent] = useState('')
+  const [code, setCode] = useState('')
+
+  const isSaved = seletectedFileContent === code
+
+  useEffect(() => {
+    if(!isSaved && code){
+      const timer = setTimeout(() => {
+        socket.emit("file:change", {
+          path: selectedFile,
+          content: code
+        }, 5 * 1000)
+        return () => {
+          clearTimeout(timer)
+        }
+      })
+    }
+  }, [code, isSaved, selectedFile])
+
+  useEffect(() => {
+    setCode("")
+  }, [selectedFile])
+
+  useEffect(() => {
+    setCode(seletectedFileContent)
+  },[seletectedFileContent])
 
   const getFileTree = async () => {
     const response = await fetch('http://localhost:9000/files')
@@ -22,9 +42,16 @@ function App() {
     setFileTree(result.tree)
   }
 
-  // useEffect(() => {
-  //   getFileTree()
-  // }, [])
+  const getFileContents = useCallback(async () => {
+    if(!selectedFile) return
+    const response = await fetch(`http://localhost:9000/files/content?path=${selectedFile}`)
+    const res = await response.json()
+    setSelectedFileContent(res.content)
+  }, [selectedFile])
+
+  useEffect(() => {
+    if(selectedFile) getFileContents()
+  }, [getFileContents, selectedFile])
 
   useEffect(() => {
     socket.on('file:refresh', getFileTree)
@@ -33,23 +60,27 @@ function App() {
     }
   }, [])
 
+
   return (
     <>
       <div className="playground-container">
         <div className="editor-container">
           <div className="files">
             <FileTree 
-              onSelect={(path: any) => setSelectedFile(path)} tree={fileTree}/>
+              onSelect={(path: any) => {
+                setSelectedFileContent("")
+                setSelectedFile(path)
+              }} 
+              tree={fileTree}/>
           </div>
           <div className="editor">
-            {selectedFile && <p>{selectedFile}</p>}
-            <AceEditor
-              mode="java"
-              theme="github"
-              name="code-editor"
-              width="600px"
-              height="400px"
-            />
+            {selectedFile && (
+              <p>
+                {selectedFile.replaceAll("/", " > ")}{" "}
+                {isSaved ? "Saved" : "Unsaved"}
+              </p>
+            )}
+            <Editor height="90vh" value={code} onChange={(e: any) => setCode(e)}/>
           </div>
         </div>
         <div className="terminal-container">

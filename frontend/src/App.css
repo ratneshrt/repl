@@ -1,11 +1,17 @@
 .playground-container{
     display: flex;
     flex-direction: column;
+    height: 100vh;
 }
 
 .editor-container{
     min-height: 60vh;
     display: flex;
+}
+
+.editor {
+  flex: 1;
+  overflow: hidden;
 }
 
 .file-node{
